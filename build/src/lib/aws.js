@@ -1,12 +1,24 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const aws_sdk_1 = __importDefault(require("aws-sdk"));
-const s3 = new aws_sdk_1.default.S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION,
+require("dotenv/config");
+const client_s3_1 = require("@aws-sdk/client-s3");
+const region = process.env.AWS_REGION;
+const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+if (!region) {
+    throw new Error("AWS_REGION is missing");
+}
+if (!accessKeyId) {
+    throw new Error("AWS_ACCESS_KEY_ID is missing");
+}
+if (!secretAccessKey) {
+    throw new Error("AWS_SECRET_ACCESS_KEY is missing");
+}
+const s3 = new client_s3_1.S3Client({
+    region,
+    credentials: {
+        accessKeyId,
+        secretAccessKey,
+    },
 });
 exports.default = s3;
