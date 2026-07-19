@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleLogin = exports.handleDeleteAdmin = exports.handleUpdateUser = exports.handleGetUserByToken = exports.handleGetUserById = exports.handleGetUsers = exports.handleSignup = void 0;
 const messages_1 = require("../messages");
 const controllers_1 = require("./controllers");
+const auth_1 = require("../../utils/auth");
 const handleSignup = async (req, res) => {
     try {
         const user = await (0, controllers_1.signUp)(req.body);
@@ -36,7 +37,7 @@ const handleGetUserById = async (req, res) => {
         const params = req.params;
         if (!params.id)
             res.status(500).send({ message: "Params ID is required" });
-        const response = await (0, controllers_1.getUserById)(+params.id);
+        const response = await (0, controllers_1.getUserById)(params.id);
         res.code(200).send({ ...messages_1.messages.verifyOk, data: response });
     }
     catch (err) {
@@ -47,7 +48,9 @@ const handleGetUserById = async (req, res) => {
 exports.handleGetUserById = handleGetUserById;
 const handleGetUserByToken = async (req, res) => {
     try {
-        const data = await (0, controllers_1.getUserByToken)(req.headers["x-access-token"]);
+        const data = await (0, auth_1.authenticate)(req, res);
+        if (!data)
+            return res.status(401).send({ ...messages_1.messages.notFound });
         res.code(200).send({ ...messages_1.messages.verifyOk, data });
     }
     catch (err) {
@@ -72,7 +75,7 @@ const handleDeleteAdmin = async (req, res) => {
         const params = req.params;
         if (!params.id)
             res.status(500).send({ message: "Params ID is required" });
-        const data = await (0, controllers_1.deleteUser)(+params.id);
+        const data = await (0, controllers_1.deleteUser)(params.id);
         res.code(200).send({ ...messages_1.messages.verifyOk, data });
     }
     catch (err) {
@@ -83,8 +86,8 @@ const handleDeleteAdmin = async (req, res) => {
 exports.handleDeleteAdmin = handleDeleteAdmin;
 const handleLogin = async (req, res) => {
     try {
-        const user = await (0, controllers_1.login)(req.body);
-        res.code(200).send({ ...messages_1.messages.verifyOk, ...user });
+        const data = await (0, controllers_1.login)(req.body);
+        res.code(200).send({ ...messages_1.messages.verifyOk, ...data });
     }
     catch (err) {
         console.log(err);

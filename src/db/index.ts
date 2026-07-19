@@ -15,7 +15,6 @@ const db = drizzle({
     ...userSchema,
   },
   connection: process.env.DATABASE_URL!,
-
 });
 
 export default db;

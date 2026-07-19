@@ -11,6 +11,7 @@ const authenticate = async function (req, res) {
         }
         else {
             const user = await (0, controllers_1.getUserByToken)(token);
+            return user;
         }
     }
     catch (err) {
@@ -29,6 +30,7 @@ const authenticateAdmin = async function (req, res) {
             if (user.role !== 1) {
                 throw new Error("Unauthorized access");
             }
+            return user;
         }
     }
     catch (err) {

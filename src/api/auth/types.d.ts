@@ -1,19 +1,19 @@
-export type TLogin = {
+export interface TLogin {
   email: string;
   password: string;
-};
+}
 
-export type TSignup = {
+export interface TSignup {
   username: string;
   email: string;
   password: string;
   role: number;
-};
+}
 
-export type TUpdate = {
-  id: number;
+export interface TUpdate {
+  id: string;
   username: string;
   email: string;
   password: string | null;
   role: number;
-};
+}

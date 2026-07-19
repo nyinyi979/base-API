@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import db from "../../db";
 import { TLogin, TSignup, TUpdate } from "./types";
 import { PagKeys } from "../types";
-import { sign, decode } from "jsonwebtoken";
+import { sign, verify } from "jsonwebtoken";
 import { usersTable } from "../../db/user";
 import { eq } from "drizzle-orm";
 
@@ -26,7 +26,6 @@ export const signUp = async (data: TSignup) => {
   return { message: "Successfully created!", data: response };
 };
 
-
 export const getUsers = async ({ page, perPage }: PagKeys) => {
   return await db.transaction(async (tx) => {
     const data = await tx.query.usersTable.findMany({
@@ -43,7 +42,7 @@ export const getUsers = async ({ page, perPage }: PagKeys) => {
   });
 };
 
-export const getUserById = async (id: number) => {
+export const getUserById = async (id: string) => {
   const user = await db.query.usersTable.findFirst({
     where: eq(usersTable.id, id),
     columns: {
@@ -58,12 +57,16 @@ export const getUserById = async (id: number) => {
 };
 
 export const getUserByToken = async (token: string) => {
-  const id = decode(token, { json: true });
-  if (!id) throw new Error("Invalid token");
-  const user = await getUserById(id.id);
-  return user;
-};
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET is not configured");
 
+  const payload = verify(token, secret, { algorithms: ["HS256"] });
+  if (typeof payload === "string" || typeof payload.id !== "string") {
+    throw new Error("Invalid token payload");
+  }
+
+  return getUserById(payload.id);
+};
 
 export const updateUser = async (data: TUpdate) => {
   const user = await db.query.usersTable.findFirst({
@@ -85,6 +88,7 @@ export const updateUser = async (data: TUpdate) => {
       ...data,
       password: hashedPassword || user.password,
     })
+    .where(eq(usersTable.id, data.id))
     .returning({
       id: usersTable.id,
       email: usersTable.email,
@@ -92,11 +96,13 @@ export const updateUser = async (data: TUpdate) => {
     });
   return response[0];
 };
-export const deleteUser = async (id: number) => {
-  const data = await db.delete(usersTable).where(eq(usersTable.id, id)).returning();
+export const deleteUser = async (id: string) => {
+  const data = await db
+    .delete(usersTable)
+    .where(eq(usersTable.id, id))
+    .returning();
   return data;
 };
-
 
 export const login = async (data: TLogin) => {
   const user = await db.query.usersTable.findFirst({
@@ -108,10 +114,15 @@ export const login = async (data: TLogin) => {
     where: eq(usersTable.email, data.email),
   });
   if (!user) throw new Error("User not found");
-  const token = sign({ id: user.id }, process.env.JWT_SECRET || "", {
-    expiresIn: "7d",
-  });
   const password = await bcrypt.compare(data.password, user.password);
   if (!password) throw new Error("Invalid password");
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error("JWT_SECRET is not configured");
+
+  const token = sign({ id: user.id }, secret, {
+    algorithm: "HS256",
+    expiresIn: "7d",
+  });
   return { user: { ...user, password: null }, token };
 };

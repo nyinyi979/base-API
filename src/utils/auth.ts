@@ -12,7 +12,7 @@ export const authenticate = async function (
       throw new Error("Missing X-Access-Token header");
     } else {
       const user = await getUserByToken(token);
-
+      return user;
     }
   } catch (err) {
     res.status(401).send({ ...messages.unthorizedAccess });
@@ -32,6 +32,7 @@ export const authenticateAdmin = async function (
       if (user.role !== 1) {
         throw new Error("Unauthorized access");
       }
+      return user;
     }
   } catch (err) {
     res.status(401).send({ ...messages.unthorizedAccess });

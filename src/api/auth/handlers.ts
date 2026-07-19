@@ -4,14 +4,13 @@ import { TLogin, TSignup, TUpdate } from "./types";
 import {
   deleteUser,
   getUserById,
-  getUserByToken,
   getUsers,
   updateUser,
   login,
   signUp,
 } from "./controllers";
 import { DeleteRequestByString, PagKeys } from "../types";
-
+import { authenticate } from "../../utils/auth";
 
 export const handleSignup = async (req: FastifyRequest, res: FastifyReply) => {
   try {
@@ -25,7 +24,7 @@ export const handleSignup = async (req: FastifyRequest, res: FastifyReply) => {
 
 export const handleGetUsers = async (
   req: FastifyRequest,
-  res: FastifyReply
+  res: FastifyReply,
 ) => {
   try {
     const params = req.query as PagKeys;
@@ -44,12 +43,12 @@ export const handleGetUsers = async (
 
 export const handleGetUserById = async (
   req: FastifyRequest,
-  res: FastifyReply
+  res: FastifyReply,
 ) => {
   try {
     const params = req.params as DeleteRequestByString;
     if (!params.id) res.status(500).send({ message: "Params ID is required" });
-    const response = await getUserById(+params.id);
+    const response = await getUserById(params.id);
     res.code(200).send({ ...messages.verifyOk, data: response });
   } catch (err) {
     console.log(err);
@@ -57,10 +56,13 @@ export const handleGetUserById = async (
   }
 };
 
-
-export const handleGetUserByToken = async (req: FastifyRequest, res: FastifyReply) => {
+export const handleGetUserByToken = async (
+  req: FastifyRequest,
+  res: FastifyReply,
+) => {
   try {
-    const data = await getUserByToken(req.headers["x-access-token"] as string);
+    const data = await authenticate(req, res);
+    if (!data) return res.status(401).send({ ...messages.notFound });
     res.code(200).send({ ...messages.verifyOk, data });
   } catch (err) {
     console.log(err);
@@ -68,10 +70,9 @@ export const handleGetUserByToken = async (req: FastifyRequest, res: FastifyRepl
   }
 };
 
-
 export const handleUpdateUser = async (
   req: FastifyRequest,
-  res: FastifyReply
+  res: FastifyReply,
 ) => {
   try {
     const data = await updateUser(req.body as TUpdate);
@@ -84,12 +85,12 @@ export const handleUpdateUser = async (
 
 export const handleDeleteAdmin = async (
   req: FastifyRequest,
-  res: FastifyReply
+  res: FastifyReply,
 ) => {
   try {
     const params = req.params as DeleteRequestByString;
     if (!params.id) res.status(500).send({ message: "Params ID is required" });
-    const data = await deleteUser(+params.id);
+    const data = await deleteUser(params.id);
     res.code(200).send({ ...messages.verifyOk, data });
   } catch (err) {
     console.log(err);
@@ -97,11 +98,10 @@ export const handleDeleteAdmin = async (
   }
 };
 
-
 export const handleLogin = async (req: FastifyRequest, res: FastifyReply) => {
   try {
-    const user = await login(req.body as TLogin);
-    res.code(200).send({ ...messages.verifyOk, ...user });
+    const data = await login(req.body as TLogin);
+    res.code(200).send({ ...messages.verifyOk, ...data });
   } catch (err) {
     console.log(err);
     throw err;

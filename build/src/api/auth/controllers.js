@@ -62,11 +62,14 @@ const getUserById = async (id) => {
 };
 exports.getUserById = getUserById;
 const getUserByToken = async (token) => {
-    const id = (0, jsonwebtoken_1.decode)(token, { json: true });
-    if (!id)
-        throw new Error("Invalid token");
-    const user = await (0, exports.getUserById)(id.id);
-    return user;
+    const secret = process.env.JWT_SECRET;
+    if (!secret)
+        throw new Error("JWT_SECRET is not configured");
+    const payload = (0, jsonwebtoken_1.verify)(token, secret, { algorithms: ["HS256"] });
+    if (typeof payload === "string" || typeof payload.id !== "string") {
+        throw new Error("Invalid token payload");
+    }
+    return (0, exports.getUserById)(payload.id);
 };
 exports.getUserByToken = getUserByToken;
 const updateUser = async (data) => {
@@ -90,6 +93,7 @@ const updateUser = async (data) => {
         ...data,
         password: hashedPassword || user.password,
     })
+        .where((0, drizzle_orm_1.eq)(user_1.usersTable.id, data.id))
         .returning({
         id: user_1.usersTable.id,
         email: user_1.usersTable.email,
@@ -99,7 +103,10 @@ const updateUser = async (data) => {
 };
 exports.updateUser = updateUser;
 const deleteUser = async (id) => {
-    const data = await db_1.default.delete(user_1.usersTable).where((0, drizzle_orm_1.eq)(user_1.usersTable.id, id)).returning();
+    const data = await db_1.default
+        .delete(user_1.usersTable)
+        .where((0, drizzle_orm_1.eq)(user_1.usersTable.id, id))
+        .returning();
     return data;
 };
 exports.deleteUser = deleteUser;
@@ -114,12 +121,16 @@ const login = async (data) => {
     });
     if (!user)
         throw new Error("User not found");
-    const token = (0, jsonwebtoken_1.sign)({ id: user.id }, process.env.JWT_SECRET || "", {
-        expiresIn: "7d",
-    });
     const password = await bcrypt_1.default.compare(data.password, user.password);
     if (!password)
         throw new Error("Invalid password");
+    const secret = process.env.JWT_SECRET;
+    if (!secret)
+        throw new Error("JWT_SECRET is not configured");
+    const token = (0, jsonwebtoken_1.sign)({ id: user.id }, secret, {
+        algorithm: "HS256",
+        expiresIn: "7d",
+    });
     return { user: { ...user, password: null }, token };
 };
 exports.login = login;
