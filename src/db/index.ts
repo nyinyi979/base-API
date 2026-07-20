@@ -1,7 +1,7 @@
-import * as userSchema from "./user";
+import dotenv from "dotenv";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import dotenv from "dotenv";
+import * as userSchema from "./user";
 
 dotenv.config();
 
@@ -14,7 +14,6 @@ const db = drizzle({
   schema: {
     ...userSchema,
   },
-  connection: process.env.DATABASE_URL!,
 });
 
 export default db;

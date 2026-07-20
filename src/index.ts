@@ -12,10 +12,13 @@ import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import authRoutes from "./api/auth/routes";
+import fileRoutes from "./api/file/routes";
 import masterRoutes from "./api/master/routes";
+import { messages } from "./api/messages";
+import { handleApiError } from "./utils/errorHandler";
 
 let cachedApp: FastifyInstance | null = null;
-async function buildApp(): Promise<FastifyInstance> {
+export async function buildApp(): Promise<FastifyInstance> {
   if (cachedApp) return cachedApp;
 
   const app: FastifyInstance = Fastify({ logger: true });
@@ -31,6 +34,7 @@ async function buildApp(): Promise<FastifyInstance> {
       tags: [
         { name: "Health", description: "Service health endpoints" },
         { name: "Authentication", description: "Authentication and users" },
+        { name: "Files", description: "File uploads" },
         { name: "Master Data", description: "Country, state, and city data" },
       ],
       components: {
@@ -84,6 +88,11 @@ async function buildApp(): Promise<FastifyInstance> {
   });
   app.register(formBody);
 
+  app.setErrorHandler(handleApiError);
+  app.setNotFoundHandler((_req, res) => {
+    return res.status(404).send({ ...messages.notFound });
+  });
+
   app.get(
     "/api",
     {
@@ -92,15 +101,21 @@ async function buildApp(): Promise<FastifyInstance> {
         summary: "Check whether the API is available",
         response: {
           200: {
-            type: "string",
+            type: "object",
+            properties: {
+              statusCode: { type: "integer" },
+              message: { type: "string" },
+            },
           },
         },
       },
     },
-    (_req, res) => res.send("hello"),
+    (_req, res) =>
+      res.send({ statusCode: 200, message: "The API is available." }),
   );
   app.register(authRoutes, { prefix: "/api/admin" });
   app.register(masterRoutes, { prefix: "/api/master" });
+  app.register(fileRoutes, { prefix: "/api/file" });
   await app.ready();
   cachedApp = app;
   return app;
@@ -115,14 +130,16 @@ if (require.main === module) {
           app.log.error(err);
           process.exit(1);
         }
-        console.log(`Server listening on ${address}`);
+        app.log.info({ address }, "Server listening");
       },
     ),
   );
 }
 
-// Vercel handler
-module.exports = async (req: FastifyRequest, res: FastifyReply) => {
+const handler = async (req: FastifyRequest, res: FastifyReply) => {
   const app = await buildApp();
   app.server.emit("request", req, res);
 };
+
+module.exports = handler;
+module.exports.buildApp = buildApp;

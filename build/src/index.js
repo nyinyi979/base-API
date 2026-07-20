@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildApp = buildApp;
 const cors_1 = __importDefault(require("@fastify/cors"));
 const formbody_1 = __importDefault(require("@fastify/formbody"));
 const helmet_1 = __importDefault(require("@fastify/helmet"));
@@ -13,7 +14,10 @@ const rate_limit_1 = __importDefault(require("@fastify/rate-limit"));
 const swagger_1 = __importDefault(require("@fastify/swagger"));
 const swagger_ui_1 = __importDefault(require("@fastify/swagger-ui"));
 const routes_1 = __importDefault(require("./api/auth/routes"));
-const routes_2 = __importDefault(require("./api/master/routes"));
+const routes_2 = __importDefault(require("./api/file/routes"));
+const routes_3 = __importDefault(require("./api/master/routes"));
+const messages_1 = require("./api/messages");
+const errorHandler_1 = require("./utils/errorHandler");
 let cachedApp = null;
 async function buildApp() {
     if (cachedApp)
@@ -30,6 +34,7 @@ async function buildApp() {
             tags: [
                 { name: "Health", description: "Service health endpoints" },
                 { name: "Authentication", description: "Authentication and users" },
+                { name: "Files", description: "File uploads" },
                 { name: "Master Data", description: "Country, state, and city data" },
             ],
             components: {
@@ -79,19 +84,28 @@ async function buildApp() {
         },
     });
     app.register(formbody_1.default);
+    app.setErrorHandler(errorHandler_1.handleApiError);
+    app.setNotFoundHandler((_req, res) => {
+        return res.status(404).send({ ...messages_1.messages.notFound });
+    });
     app.get("/api", {
         schema: {
             tags: ["Health"],
             summary: "Check whether the API is available",
             response: {
                 200: {
-                    type: "string",
+                    type: "object",
+                    properties: {
+                        statusCode: { type: "integer" },
+                        message: { type: "string" },
+                    },
                 },
             },
         },
-    }, (_req, res) => res.send("hello"));
+    }, (_req, res) => res.send({ statusCode: 200, message: "The API is available." }));
     app.register(routes_1.default, { prefix: "/api/admin" });
-    app.register(routes_2.default, { prefix: "/api/master" });
+    app.register(routes_3.default, { prefix: "/api/master" });
+    app.register(routes_2.default, { prefix: "/api/file" });
     await app.ready();
     cachedApp = app;
     return app;
@@ -102,11 +116,12 @@ if (require.main === module) {
             app.log.error(err);
             process.exit(1);
         }
-        console.log(`Server listening on ${address}`);
+        app.log.info({ address }, "Server listening");
     }));
 }
-// Vercel handler
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
     const app = await buildApp();
     app.server.emit("request", req, res);
 };
+module.exports = handler;
+module.exports.buildApp = buildApp;

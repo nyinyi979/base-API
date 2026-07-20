@@ -1,40 +1,37 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { messages } from "../api/messages";
 import { getUserByToken } from "../api/auth/controllers";
+import { AppError, ForbiddenError, UnauthorizedError } from "./errors";
 
-export const authenticate = async function (
-  req: FastifyRequest,
-  res: FastifyReply,
-) {
+const getAccessToken = (req: FastifyRequest) => {
+  const token = req.headers["x-access-token"];
+  if (!token || typeof token !== "string") throw new UnauthorizedError();
+  return token;
+};
+
+const rethrowServerError = (error: unknown) => {
+  if (error instanceof AppError && error.statusCode >= 500) throw error;
+};
+
+export const authenticate = async (req: FastifyRequest, _res: FastifyReply) => {
   try {
-    const token = req.headers["x-access-token"];
-    if (!token || typeof token !== "string") {
-      throw new Error("Missing X-Access-Token header");
-    } else {
-      const user = await getUserByToken(token);
-      return user;
-    }
-  } catch (err) {
-    res.status(401).send({ ...messages.unthorizedAccess });
+    return await getUserByToken(getAccessToken(req));
+  } catch (error) {
+    rethrowServerError(error);
+    throw new UnauthorizedError();
   }
 };
 
-export const authenticateAdmin = async function (
+export const authenticateAdmin = async (
   req: FastifyRequest,
-  res: FastifyReply,
-) {
+  _res: FastifyReply,
+) => {
   try {
-    const token = req.headers["x-access-token"];
-    if (!token || typeof token !== "string") {
-      throw new Error("Missing X-Access-Token header");
-    } else {
-      const user = await getUserByToken(token);
-      if (user.role !== 1) {
-        throw new Error("Unauthorized access");
-      }
-      return user;
-    }
-  } catch (err) {
-    res.status(401).send({ ...messages.unthorizedAccess });
+    const user = await getUserByToken(getAccessToken(req));
+    if (user.role !== 1) throw new ForbiddenError();
+    return user;
+  } catch (error) {
+    rethrowServerError(error);
+    if (error instanceof ForbiddenError) throw error;
+    throw new UnauthorizedError();
   }
 };

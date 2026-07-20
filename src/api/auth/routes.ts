@@ -1,50 +1,37 @@
-import { FastifyInstance } from "fastify";
+import { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
+import { authenticateAdmin } from "../../utils/auth";
+import { idParamsSchema, paginationQuerySchema } from "../schemas";
 import {
+  handleDeleteAdmin,
   handleGetUserById,
   handleGetUserByToken,
   handleGetUsers,
-  handleUpdateUser,
-  handleDeleteAdmin,
   handleLogin,
-  handleSignup,
+  handleUpdateUser,
 } from "./handlers";
-import { authenticateAdmin } from "../../utils/auth";
+import { loginBodySchema, updateUserBodySchema } from "./schemas";
 
-export default async function authRoutes(app: FastifyInstance) {
+const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post(
-    "/signup",
+    "/login",
     {
       schema: {
         tags: ["Authentication"],
-        summary: "Create a user account",
-        body: {
-          type: "object",
-          required: ["username", "email", "password"],
-          properties: {
-            username: { type: "string", minLength: 1, maxLength: 100 },
-            email: { type: "string", format: "email", maxLength: 100 },
-            password: { type: "string", minLength: 8, maxLength: 255 },
-            role: { type: "integer", default: 0 },
-          },
-        },
+        summary: "Log in",
+        body: loginBodySchema,
       },
     },
-    handleSignup,
+    handleLogin,
   );
   app.get(
     "",
     {
+      preHandler: authenticateAdmin,
       schema: {
         tags: ["Authentication"],
         summary: "List users",
-        querystring: {
-          type: "object",
-          required: ["page", "perPage"],
-          properties: {
-            page: { type: "integer", minimum: 0 },
-            perPage: { type: "integer", minimum: 1, maximum: 100 },
-          },
-        },
+        security: [{ accessToken: [] }],
+        querystring: paginationQuerySchema,
       },
     },
     handleGetUsers,
@@ -57,11 +44,7 @@ export default async function authRoutes(app: FastifyInstance) {
         tags: ["Authentication"],
         summary: "Get a user by ID",
         security: [{ accessToken: [] }],
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: { id: { type: "string", format: "uuid" } },
-        },
+        params: idParamsSchema,
       },
     },
     handleGetUserById,
@@ -80,25 +63,12 @@ export default async function authRoutes(app: FastifyInstance) {
   app.put(
     "/",
     {
+      preHandler: authenticateAdmin,
       schema: {
         tags: ["Authentication"],
         summary: "Update a user",
-        body: {
-          type: "object",
-          required: ["id"],
-          properties: {
-            id: { type: "string", format: "uuid" },
-            username: { type: "string", minLength: 1, maxLength: 100 },
-            email: { type: "string", format: "email", maxLength: 100 },
-            password: {
-              anyOf: [
-                { type: "string", minLength: 8, maxLength: 255 },
-                { type: "null" },
-              ],
-            },
-            role: { type: "integer" },
-          },
-        },
+        security: [{ accessToken: [] }],
+        body: updateUserBodySchema,
       },
     },
     handleUpdateUser,
@@ -111,31 +81,11 @@ export default async function authRoutes(app: FastifyInstance) {
         tags: ["Authentication"],
         summary: "Delete a user",
         security: [{ accessToken: [] }],
-        params: {
-          type: "object",
-          required: ["id"],
-          properties: { id: { type: "string", format: "uuid" } },
-        },
+        params: idParamsSchema,
       },
     },
     handleDeleteAdmin,
   );
-  app.post(
-    "/login",
-    {
-      schema: {
-        tags: ["Authentication"],
-        summary: "Log in",
-        body: {
-          type: "object",
-          required: ["email", "password"],
-          properties: {
-            email: { type: "string", format: "email" },
-            password: { type: "string", minLength: 1 },
-          },
-        },
-      },
-    },
-    handleLogin,
-  );
-}
+};
+
+export default authRoutes;

@@ -1,37 +1,24 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = authRoutes;
-const handlers_1 = require("./handlers");
 const auth_1 = require("../../utils/auth");
-async function authRoutes(app) {
-    app.post("/signup", {
+const schemas_1 = require("../schemas");
+const handlers_1 = require("./handlers");
+const schemas_2 = require("./schemas");
+const authRoutes = async (app) => {
+    app.post("/login", {
         schema: {
             tags: ["Authentication"],
-            summary: "Create a user account",
-            body: {
-                type: "object",
-                required: ["username", "email", "password"],
-                properties: {
-                    username: { type: "string", minLength: 1, maxLength: 100 },
-                    email: { type: "string", format: "email", maxLength: 100 },
-                    password: { type: "string", minLength: 8, maxLength: 255 },
-                    role: { type: "integer", default: 0 },
-                },
-            },
+            summary: "Log in",
+            body: schemas_2.loginBodySchema,
         },
-    }, handlers_1.handleSignup);
+    }, handlers_1.handleLogin);
     app.get("", {
+        preHandler: auth_1.authenticateAdmin,
         schema: {
             tags: ["Authentication"],
             summary: "List users",
-            querystring: {
-                type: "object",
-                required: ["page", "perPage"],
-                properties: {
-                    page: { type: "integer", minimum: 0 },
-                    perPage: { type: "integer", minimum: 1, maximum: 100 },
-                },
-            },
+            security: [{ accessToken: [] }],
+            querystring: schemas_1.paginationQuerySchema,
         },
     }, handlers_1.handleGetUsers);
     app.get("/:id", {
@@ -40,11 +27,7 @@ async function authRoutes(app) {
             tags: ["Authentication"],
             summary: "Get a user by ID",
             security: [{ accessToken: [] }],
-            params: {
-                type: "object",
-                required: ["id"],
-                properties: { id: { type: "string", format: "uuid" } },
-            },
+            params: schemas_1.idParamsSchema,
         },
     }, handlers_1.handleGetUserById);
     app.post("/me", {
@@ -55,25 +38,12 @@ async function authRoutes(app) {
         },
     }, handlers_1.handleGetUserByToken);
     app.put("/", {
+        preHandler: auth_1.authenticateAdmin,
         schema: {
             tags: ["Authentication"],
             summary: "Update a user",
-            body: {
-                type: "object",
-                required: ["id"],
-                properties: {
-                    id: { type: "string", format: "uuid" },
-                    username: { type: "string", minLength: 1, maxLength: 100 },
-                    email: { type: "string", format: "email", maxLength: 100 },
-                    password: {
-                        anyOf: [
-                            { type: "string", minLength: 8, maxLength: 255 },
-                            { type: "null" },
-                        ],
-                    },
-                    role: { type: "integer" },
-                },
-            },
+            security: [{ accessToken: [] }],
+            body: schemas_2.updateUserBodySchema,
         },
     }, handlers_1.handleUpdateUser);
     app.delete("/:id", {
@@ -82,25 +52,8 @@ async function authRoutes(app) {
             tags: ["Authentication"],
             summary: "Delete a user",
             security: [{ accessToken: [] }],
-            params: {
-                type: "object",
-                required: ["id"],
-                properties: { id: { type: "string", format: "uuid" } },
-            },
+            params: schemas_1.idParamsSchema,
         },
     }, handlers_1.handleDeleteAdmin);
-    app.post("/login", {
-        schema: {
-            tags: ["Authentication"],
-            summary: "Log in",
-            body: {
-                type: "object",
-                required: ["email", "password"],
-                properties: {
-                    email: { type: "string", format: "email" },
-                    password: { type: "string", minLength: 1 },
-                },
-            },
-        },
-    }, handlers_1.handleLogin);
-}
+};
+exports.default = authRoutes;
